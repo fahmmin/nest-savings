@@ -3,9 +3,9 @@ import type { Basket, Books, Exchange, Fill, LogEntry, Signal, Symbol, UserRecor
 import { BASKETS, basketById, NAMES } from './baskets.ts'
 import { getSignals, topNews } from './signals.ts'
 import { targetWeights } from './weights.ts'
-import { decide, nextHwm, valueOf } from './decide.ts'
+import { decide, MIN_NOTIONAL, nextHwm, usd, valueOf } from './decide.ts'
 import { signEntry } from './journal.ts'
-import { addLog, allUsers, nextLogId, patchUser, type Db } from './db.ts'
+import { addLog, allUsers, getUser, nextLogId, patchUser, type Db } from './db.ts'
 
 export const SYMBOLS: Symbol[] = [...new Set(BASKETS.flatMap(b => Object.keys(b.weights)))].filter(s => s !== CASH)
 
@@ -33,7 +33,21 @@ const sourcesFor = async (b: Basket, signals: Signal[]) => {
 }
 
 /** One pass for one user: value, high-water mark, decision, orders, signed log entry. Returns the updated record. */
+const inFlight = new Set<string>()
+
+/** Ticks one user unless they are already being ticked; always works from the latest stored record. */
 export async function tickUser(ctx: Ctx, user: UserRecord, view: Awaited<ReturnType<typeof marketView>>, books: Books, now = new Date()): Promise<UserRecord> {
+  const key = user.address.toLowerCase()
+  if (inFlight.has(key)) return user
+  inFlight.add(key)
+  try {
+    const latest = getUser(ctx.db, user.address)
+    if (!latest || latest.status !== 'active') return latest ?? user
+    return await tickOne(ctx, latest, view, books, now)
+  } finally { inFlight.delete(key) }
+}
+
+async function tickOne(ctx: Ctx, user: UserRecord, view: Awaited<ReturnType<typeof marketView>>, books: Books, now: Date): Promise<UserRecord> {
   const ex = ctx.exchangeFor(user.mode)
   const [balances, filters] = await Promise.all([ex.balances(user), ex.filters()])
   const valueUsd = valueOf(balances, books)
@@ -44,11 +58,16 @@ export async function tickUser(ctx: Ctx, user: UserRecord, view: Awaited<ReturnT
   if (d.kind === 'hold') { patchUser(ctx.db, u.address, { hwmUsd: valueUsd }); return u }
 
   const fills: Fill[] = await ex.place(u, d.orders)
-  const after = valueOf(await ex.balances(u), books)
+  const afterBal = await ex.balances(u)
+  const after = valueOf(afterBal, books)
   const traded = fills.some(f => f.status === 'filled' || f.status === 'partial')
   if (d.kind === 'exit') {
-    u.status = 'exited'
-    await writeLog(ctx.db, { address: u.address, kind: 'exit', text: d.text, sources: [], fills, valueUsd: after })
+    // Only stop once (almost) nothing is left in the market; otherwise stay active so the next check keeps selling.
+    const leftUsd = after - (afterBal[CASH] ?? 0)
+    const done = leftUsd < MIN_NOTIONAL
+    if (done) u.status = 'exited'
+    const text = done ? d.text : `${d.text} ${usd(leftUsd)} could not be sold yet because the testnet market is thin; Nest keeps selling at every check.`
+    await writeLog(ctx.db, { address: u.address, kind: 'exit', text, sources: [], fills, valueUsd: after })
   } else {
     const blocked = fills.filter(f => f.status === 'rejected' || f.status === 'skipped')
     const partial = fills.some(f => f.status === 'partial')

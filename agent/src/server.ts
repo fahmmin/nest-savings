@@ -11,7 +11,7 @@ import { accountIdOf, apiKeysOf, registerPermissionedKey } from './sodex/client.
 import { liveExchange } from './exchange/live.ts'
 import { creditPaper, paperExchange } from './exchange/paper.ts'
 
-const PORT = Number(process.env.PORT ?? 8787)
+const PORT = Number(process.env.PORT ?? 8790)
 const LOOP_MS = Number(process.env.LOOP_MS ?? 60_000)
 const EXCHANGE: 'live' | 'paper' = process.env.EXCHANGE === 'live' ? 'live' : 'paper'
 const PAPER_START_USD = 1000
@@ -76,28 +76,31 @@ export function createApp(db: Db, exchanges: Record<UserRecord['mode'], Exchange
       if (mode === 'live' && EXCHANGE !== 'live') throw new HttpError(400, 'Live testnet trading is switched off on this server. Use practice money.')
       const nonce = Date.now()
       const key = apiKeyFor(address)
+      prunePending()
       if (mode === 'paper') {
-        const message = `Nest practice account\naddress:${address}\nnonce:${nonce}\nbasket:${rules.basketId}\nfloor:${rules.floorPct}%`
-        pending.set(address, { rules, mode, nonce, accountId: 0, message })
+        const message = `Nest practice account\naddress:${address}\nnonce:${nonce}\nbasket:${rules.basketId}\nfloor:${rules.floorPct}%\ncash out:${rules.cashOutAt ?? 'none'}`
+        pending.set(`${address}:${nonce}`, { rules, mode, nonce, accountId: 0, message })
         return { apiKeyName: key.name, publicKey: key.publicKey, accountId: 0, message, nonce }
       }
       const accountId = await accountIdOf(address)
       if (!accountId) throw new HttpError(409, 'This wallet has no active SoDEX testnet account yet. Claim test funds at testnet.sodex.com and move them to Spot first.')
       const typedData = permissionedKeyTypedData({ accountId, name: key.name, publicKey: key.publicKey, expiresAt: nonce + KEY_TTL_MS, permissions: AGENT_PERMISSIONS, nonce })
-      pending.set(address, { rules, mode, nonce, accountId, typedData })
+      pending.set(`${address}:${nonce}`, { rules, mode, nonce, accountId, typedData })
       return { apiKeyName: key.name, publicKey: key.publicKey, accountId, typedData, nonce }
     },
 
     'POST /users/:a/link': async ([a], b) => {
       const address = addr(a)
-      const p = pending.get(address)
-      if (!p || p.nonce !== Number(b.nonce) || Date.now() - p.nonce > 10 * 60_000) throw new HttpError(400, 'link request expired, start again')
+      // Keyed by address and nonce, so a stranger's link-request for this address cannot replace this one.
+      const pk = `${address}:${Number(b.nonce)}`
+      const p = pending.get(pk)
+      if (!p || Date.now() - p.nonce > 10 * 60_000) throw new HttpError(400, 'link request expired, start again')
       const signature = String(b.signature) as Hex
       const ok = p.mode === 'paper'
         ? await verifyMessage({ address, message: p.message!, signature }).catch(() => false)
         : await verifyTypedData({ address, ...(p.typedData as any), signature }).catch(() => false)
       if (!ok) throw new HttpError(401, 'signature does not match this wallet')
-      pending.delete(address)
+      pending.delete(pk)
       const key = apiKeyFor(address)
       if (p.mode === 'live') {
         await registerPermissionedKey(address, { accountId: p.accountId, name: key.name, publicKey: key.publicKey, expiresAt: p.nonce + KEY_TTL_MS, permissions: AGENT_PERMISSIONS, nonce: p.nonce }, signature)
@@ -105,8 +108,7 @@ export function createApp(db: Db, exchanges: Record<UserRecord['mode'], Exchange
         const k = keys.spot.find(x => x.name === key.name)
         if (!k || ((k.permissions ?? 0) & AGENT_PERMISSIONS) !== AGENT_PERMISSIONS) throw new HttpError(502, 'SoDEX did not confirm the trade-only key; nothing was changed')
       } else if (!getUser(db, address)) creditPaper(db, address, PAPER_START_USD)
-      const existing = getUser(db, address)
-      const u: UserRecord = { ...p.rules, address, accountId: p.accountId, mode: p.mode, status: 'active', hwmUsd: existing?.hwmUsd ?? 0, apiKeyName: key.name, linkedAt: new Date().toISOString(), lastRebalanceAt: undefined }
+      const u: UserRecord = { ...p.rules, address, accountId: p.accountId, mode: p.mode, status: 'active', hwmUsd: 0, apiKeyName: key.name, linkedAt: new Date().toISOString(), lastRebalanceAt: undefined }
       putUser(db, u)
       await writeLog(db, { address, kind: 'link', text: p.mode === 'paper' ? `Practice account opened with $${PAPER_START_USD.toLocaleString('en-US')}. Nest will build your basket now.` : 'Your SoDEX account is linked with a trade-only key. Nest can buy and sell for you but cannot withdraw or move your money.', sources: [], fills: [], valueUsd: 0 })
       await tickNow(u)
@@ -135,7 +137,8 @@ export function createApp(db: Db, exchanges: Record<UserRecord['mode'], Exchange
       if (status === 'paused') { u.status = 'paused'; text = 'Paused. Nest will not trade until you resume.' }
       if (status === 'active' && cur.status !== 'active') {
         u.status = 'active'
-        u.hwmUsd = (await userView(ctx, u, await marketView())).valueUsd // floor restarts from today's value
+        if (u.cashOutAt && Date.parse(u.cashOutAt) <= Date.now()) delete u.cashOutAt // a passed date would exit again at once
+        u.hwmUsd =(await userView(ctx, u, await marketView())).valueUsd // floor restarts from today's value
         text = 'Resumed. Your safety floor now counts from today\'s value.'
       }
       putUser(db, u)
@@ -143,6 +146,12 @@ export function createApp(db: Db, exchanges: Record<UserRecord['mode'], Exchange
       if (u.status === 'active') await tickNow(u)
       return view(getUser(db, address)!)
     },
+  }
+
+  /** Drops expired link requests and caps the map, since link-request needs no signature. */
+  function prunePending() {
+    for (const [k, v] of pending) if (Date.now() - v.nonce > 10 * 60_000) pending.delete(k)
+    if (pending.size > 5000) throw new HttpError(503, 'Too many sign-ups in progress, try again in a minute.')
   }
 
   async function tickNow(u: UserRecord) {

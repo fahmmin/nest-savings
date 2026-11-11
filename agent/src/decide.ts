@@ -62,6 +62,10 @@ export function decide({ user, balances, books, filters, target, now }: DecideIn
   if (user.status === 'exited') return hold('Your savings are in dollars. Nest will not trade until you resume in settings.')
   if (user.status === 'paused') return hold('You paused Nest, so it is not trading.')
 
+  // A held asset whose book is empty on both sides has no price: wait, rather than mistake it for a crash.
+  const unpriced = Object.keys(balances).filter((s) => s !== CASH && balances[s] > 0 && s in books && !(books[s].bid || books[s].ask))
+  if (unpriced.length) return hold(`Nest could not get a price for ${list(unpriced.map(nameOf))} right now, so it is waiting for the next check.`)
+
   const value = valueOf(balances, books)
   const hwm = nextHwm(user.hwmUsd, value)
   const floorUsd = hwm * (1 - user.floorPct / 100)
@@ -72,7 +76,7 @@ export function decide({ user, balances, books, filters, target, now }: DecideIn
     const orders: Order[] = []
     const notes: string[] = []
     for (const [s, q] of Object.entries(balances)) {
-      if (s === CASH || !(q > 0)) continue
+      if (s === CASH || !(q > 0) || !(s in books)) continue // coins outside Nest's baskets are not Nest's to sell
       const o = makeOrder('sell', s, q, books, filters)
       if (typeof o === 'string') notes.push(o)
       else if (o) orders.push(o)
@@ -120,7 +124,9 @@ export function decide({ user, balances, books, filters, target, now }: DecideIn
   if (!sells.length && !buys.length) {
     return hold(notes.length ? `Nest wanted to rebalance, but: ${notes.join(' ')}` : 'Your basket is close enough to target; every change would be under $5, so Nest made no trades.')
   }
-  const lead = drifted ? `${cap(nameOf(worst.s))} ${worst.gap > 0 ? 'grew' : 'fell'} to ${pct(worst.cur)} of your basket (target ${pct(worst.tgt)})` : 'Weekly check-up'
+  const lead = !drifted ? 'Weekly check-up'
+    : worst.s === CASH ? `You hold ${worst.gap > 0 ? 'more' : 'fewer'} dollars than planned (${pct(worst.cur)}, target ${pct(worst.tgt)})`
+    : `${cap(nameOf(worst.s))} is ${pct(worst.cur)} of your basket, ${worst.gap > 0 ? 'above' : 'below'} its ${pct(worst.tgt)} target`
   const sold = sells.map((o) => nameOf(o.symbol))
   const bought = buys.map((o) => nameOf(o.symbol))
   const what = sold.length ? `selling ${list(sold)}${bought.length ? ` and buying ${list(bought)}` : ' for dollars'}` : `buying ${list(bought)} with dollars`

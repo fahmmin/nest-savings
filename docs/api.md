@@ -1,6 +1,6 @@
 # Agent HTTP API (contract between agent/ and app/)
 
-Base: `VITE_AGENT_URL` (default `http://localhost:8787`). JSON everywhere. CORS open for GET; POST
+Base: `VITE_AGENT_URL` (default `http://localhost:8790`). JSON everywhere. CORS open for GET; POST
 accepts the app origin. Types are in `agent/src/types.ts`; `app/src/api.ts` mirrors them.
 
 | Method + path | Returns | Notes |

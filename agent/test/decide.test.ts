@@ -43,7 +43,7 @@ test('drift over 5 points: rebalance with a plain sentence', () => {
   assert.equal(d.kind, 'rebalance')
   if (d.kind !== 'rebalance') return
   assert.deepEqual(d.orders, [{ symbol: BTC, side: 'sell', quantity: '0.0008', price: '69650', notional: 56 }])
-  assert.equal(d.reason, 'Bitcoin grew to 31% of your basket (target 25%); selling Bitcoin for dollars.')
+  assert.equal(d.reason, 'Bitcoin is 31% of your basket, above its 25% target; selling Bitcoin for dollars.')
 })
 
 test('sells before buys, limit prices and quantities rounded to tick/step', () => {
@@ -114,4 +114,17 @@ test('canonical decimal strings', () => {
   assert.equal(toDecimal(stepsDown(0.3, 0.1), 0.1), '0.3')
   assert.equal(toDecimal(1, 1e-8), '0.00000001')
   assert.equal(toDecimal(10, 0.5), '5')
+})
+
+test('an empty book on a held asset means "no price yet", never a fake crash', () => {
+  const empty = { ...books, [NVDA]: { bid: 0, ask: 0, bidSz: 0, askSz: 0 } }
+  const d = run({ books: empty, balances: bal(150, 700, 150) }, { hwmUsd: 2000 })
+  assert.equal(d.kind, 'hold')
+  assert.match(d.reason, /could not get a price for Nvidia/)
+})
+
+test('an exit only sells coins Nest has a price for (coins outside the baskets are left alone)', () => {
+  const d = run({ balances: { ...bal(100, 200, 100), vETH_vUSDC: 1 } }, { hwmUsd: 1000 })
+  assert.equal(d.kind, 'exit')
+  assert.deepEqual(d.kind === 'exit' && d.orders.map(o => o.symbol).sort(), [BTC, NVDA])
 })
