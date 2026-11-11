@@ -1,0 +1,89 @@
+{
+  "_fixture": true,
+  "_note": "Recorded-style fixture shaped like GET /news/pick?page=1&page_size=50. Headlines are placeholders, not real news.",
+  "code": 0,
+  "message": "success",
+  "data": {
+    "page": 1,
+    "page_size": 50,
+    "total": 5,
+    "list": [
+      {
+        "id": "fx-news-1",
+        "title": "Sample headline: Bitcoin ETFs log a fourth day of inflows",
+        "source_link": "https://sosovalue.com/research/fixture-btc-etf-inflows",
+        "release_time": 1794387600000,
+        "category": 1,
+        "matched_currencies": [
+          {
+            "id": "1673723677362319866",
+            "full_name": "BITCOIN",
+            "name": "BTC"
+          }
+        ],
+        "tags": [
+          "ETF"
+        ]
+      },
+      {
+        "id": "fx-news-2",
+        "title": null,
+        "source_link": "https://sosovalue.com/research/fixture-untitled",
+        "release_time": 1794384000000,
+        "category": 1,
+        "matched_currencies": [
+          {
+            "id": "1673723677362319866",
+            "full_name": "BITCOIN",
+            "name": "BTC"
+          }
+        ],
+        "tags": []
+      },
+      {
+        "id": "fx-news-3",
+        "title": "Sample headline: Nvidia earnings beat lifts chip stocks",
+        "source_link": "https://sosovalue.com/research/fixture-nvidia-earnings",
+        "release_time": 1794380400000,
+        "category": 13,
+        "matched_currencies": [],
+        "tags": [
+          "NVDA"
+        ]
+      },
+      {
+        "id": "fx-news-4",
+        "title": "Sample headline: Ethereum ETFs see small outflows as DeFi activity cools",
+        "source_link": "https://sosovalue.com/research/fixture-eth-etf-outflows",
+        "release_time": 1794376800000,
+        "category": 1,
+        "matched_currencies": [
+          {
+            "id": "1673723677362319867",
+            "full_name": "ETHEREUM",
+            "name": "ETH"
+          }
+        ],
+        "tags": [
+          "ETF",
+          "DeFi"
+        ]
+      },
+      {
+        "id": "fx-news-5",
+        "title": "Sample headline: Bitcoin holds steady above key level",
+        "source_link": "https://sosovalue.com/research/fixture-btc-steady",
+        "release_time": 1794373200000,
+        "category": 1,
+        "matched_currencies": [
+          {
+            "id": "1673723677362319866",
+            "full_name": "BITCOIN",
+            "name": "BTC"
+          }
+        ],
+        "tags": []
+      }
+    ]
+  }
+}

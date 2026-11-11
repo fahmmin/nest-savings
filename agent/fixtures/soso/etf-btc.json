@@ -1,0 +1,16 @@
+{
+  "_fixture": true,
+  "_note": "Recorded-style fixture shaped like GET /etfs/summary-history?symbol=BTC&country_code=US. Not live data.",
+  "code": 0,
+  "message": "success",
+  "data": [
+    { "date": "2026-11-11", "total_net_inflow": null, "total_value_traded": null, "total_net_assets": null, "cum_net_inflow": null },
+    { "date": "2026-11-10", "total_net_inflow": 120000000, "total_value_traded": 3120000000, "total_net_assets": 98400000000, "cum_net_inflow": 61412000000 },
+    { "date": "2026-11-07", "total_net_inflow": -35000000, "total_value_traded": 2870000000, "total_net_assets": 97900000000, "cum_net_inflow": 61292000000 },
+    { "date": "2026-11-06", "total_net_inflow": 210000000, "total_value_traded": 3540000000, "total_net_assets": 98100000000, "cum_net_inflow": 61327000000 },
+    { "date": "2026-11-05", "total_net_inflow": 47000000, "total_value_traded": 2410000000, "total_net_assets": 96800000000, "cum_net_inflow": 61117000000 },
+    { "date": "2026-11-04", "total_net_inflow": 70000000, "total_value_traded": 2660000000, "total_net_assets": 96300000000, "cum_net_inflow": 61070000000 },
+    { "date": "2026-11-03", "total_net_inflow": -510000000, "total_value_traded": 4980000000, "total_net_assets": 95700000000, "cum_net_inflow": 61000000000 },
+    { "date": "2026-10-31", "total_net_inflow": 330000000, "total_value_traded": 3210000000, "total_net_assets": 97200000000, "cum_net_inflow": 61510000000 }
+  ]
+}

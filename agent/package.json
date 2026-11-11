@@ -4,13 +4,20 @@
   "private": true,
   "description": "Nest agent: keeps savings baskets on target on SoDEX testnet with a trade-only key",
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "start": "node src/server.ts",
-    "dev": "node --watch src/server.ts",
-    "test": "node --test \"test/**/*.test.ts\""
+    "start": "node --env-file-if-exists=.env src/server.ts",
+    "dev": "node --watch --env-file-if-exists=.env src/server.ts",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc"
   },
   "dependencies": {
     "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "5.9"
   }
 }

@@ -1,0 +1,35 @@
+{
+  "_fixture": true,
+  "_note": "Recorded-style fixture shaped like GET /analyses/fgi_indicator?limit=10. Newest row lacks the series key on purpose (the API omits null series). Not live data.",
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "timestamp": "1794355200000"
+    },
+    {
+      "timestamp": "1794268800000",
+      "crypto_fear_&_greed_index": 78
+    },
+    {
+      "timestamp": "1794182400000",
+      "crypto_fear_&_greed_index": 74
+    },
+    {
+      "timestamp": "1794096000000",
+      "crypto_fear_&_greed_index": 69
+    },
+    {
+      "timestamp": "1794009600000",
+      "crypto_fear_&_greed_index": 61
+    },
+    {
+      "timestamp": "1793923200000",
+      "crypto_fear_&_greed_index": 55
+    },
+    {
+      "timestamp": "1793836800000",
+      "crypto_fear_&_greed_index": 48
+    }
+  ]
+}
