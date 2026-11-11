@@ -81,6 +81,10 @@ App: `VITE_AGENT_URL` (default `http://localhost:8790`). `npm run dev:mock` serv
 
 Tests: `cd agent && npm test && npm run typecheck` (66 tests), `cd app && npm test && npm run build`.
 
+Wallet E2E with Synpress + MetaMask (`e2e/`, see `e2e/README.md`): 8 practice-money tests through the real app
+(sign-up, rejected signature, signed settings, browser-verified log), plus a live SoDEX testnet test you run with your
+own funded wallet that registers the trade-only key and checks a real testnet fill in SoDEX's order history.
+
 ## Demo
 
 - Public demo account (no wallet): `#home-0x5aFE000000000000000000000000000000000001`

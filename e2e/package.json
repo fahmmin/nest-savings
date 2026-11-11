@@ -1,0 +1,23 @@
+{
+  "name": "nest-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "cache": "node scripts/build-cache.ts wallet-setup/test.setup.ts",
+    "cache:live": "node --env-file-if-exists=.env scripts/build-cache.ts wallet-setup/live.setup.ts",
+    "test": "playwright test tests/paper.spec.ts",
+    "test:live": "node --env-file-if-exists=.env node_modules/@playwright/test/cli.js test tests/live.spec.ts",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.48.2",
+    "@synthetixio/synpress": "4.1.1",
+    "@synthetixio/synpress-cache": "0.0.13",
+    "@types/node": "^24.19.2",
+    "typescript": "~5.9.0"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

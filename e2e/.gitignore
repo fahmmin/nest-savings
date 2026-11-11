@@ -1,0 +1,6 @@
+.cache-synpress/
+playwright-report/
+test-results/
+.tmp/
+.env
+node_modules/

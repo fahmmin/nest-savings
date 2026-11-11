@@ -163,7 +163,7 @@ function Trust({ u, health }: { u: UserView; health?: Health }) {
             <details className="how">
               <summary>How we check this</summary>
               <div>
-                <p>SoDEX lists every API key of an account at <code>GET {apiKeysUrl(u.address)}</code>. Nest's key is registered as a permissioned key{k?.permissions !== undefined ? <> with <code>permissions = {k.permissions}</code></> : null}: the withdraw (2), transfer (4) and cancel (8) bits are turned off, which SoDEX enforces on its side.</p>
+                <p>SoDEX lists every API key of an account at <code>GET {apiKeysUrl(u.address)}</code>. Nest's key is registered as a permissioned key{k?.permissions !== undefined ? <> with <code>permissions = {k.permissions}</code></> : null}: the cancel (2), withdraw (4) and transfer (8) bits are turned off, which SoDEX enforces on its side.</p>
                 {k && <p>Key address <code>{k.publicKey}</code>, read from {k.source}.</p>}
               </div>
             </details>
