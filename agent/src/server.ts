@@ -110,7 +110,9 @@ export function createApp(db: Db, exchanges: Record<UserRecord['mode'], Exchange
       } else if (!getUser(db, address)) creditPaper(db, address, PAPER_START_USD)
       const u: UserRecord = { ...p.rules, address, accountId: p.accountId, mode: p.mode, status: 'active', hwmUsd: 0, apiKeyName: key.name, linkedAt: new Date().toISOString(), lastRebalanceAt: undefined }
       putUser(db, u)
-      await writeLog(db, { address, kind: 'link', text: p.mode === 'paper' ? `Practice account opened with $${PAPER_START_USD.toLocaleString('en-US')}. Nest will build your basket now.` : 'Your SoDEX account is linked with a trade-only key. Nest can buy and sell for you but cannot withdraw or move your money.', sources: [], fills: [], valueUsd: 0 })
+      // The link entry carries the starting value: "change since start" on My money is measured from it.
+      const startUsd = (await userView(ctx, u, await marketView())).valueUsd
+      await writeLog(db, { address, kind: 'link', text: p.mode === 'paper' ? `Practice account opened with $${PAPER_START_USD.toLocaleString('en-US')}. Nest will build your basket now.` : 'Your SoDEX account is linked with a trade-only key. Nest can buy and sell for you but cannot withdraw or move your money.', sources: [], fills: [], valueUsd: startUsd })
       await tickNow(u)
       return view(getUser(db, address)!)
     },

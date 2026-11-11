@@ -74,6 +74,7 @@ test('paper sign-up: wrong signer is refused, right signer opens and fills the b
   const log = (await get(`/users/${wallet.address}/log`)).body as LogEntry[]
   assert.deepEqual(log.map(e => e.kind), ['rebalance', 'link'])
   for (const e of log) assert.ok(await verifyEntry(e), `entry ${e.id} verifies`)
+  assert.equal(log.find(e => e.kind === 'link')!.valueUsd, 1000, 'link entry records the starting value')
   assert.equal(log[0].signer, (await get('/health')).body.journalSigner)
 })
 

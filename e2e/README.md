@@ -30,6 +30,15 @@ npm test                          # headed. Headless: HEADLESS=true npm test
 | settings | floor 20 → 25, pause and resume, each one MetaMask signature, all recorded in the agent |
 | no double sign-up | a wallet that already has an account cannot sign up again |
 
+## Walkthrough video
+
+```sh
+HEADLESS=true npm run walkthrough   # → demo/nest-walkthrough.mp4, captioned, fails if it is 3 minutes or longer
+```
+
+Records the real app, agent and MetaMask: landing, baskets, crash replay, practice sign-up with one signature,
+My money, verified activity, a signed settings change, and the public demo account. Needs ffmpeg on PATH.
+
 ## Live SoDEX testnet run (your wallet, real testnet orders)
 
 This registers Nest's trade-only key on **your** SoDEX testnet account and lets the agent place real testnet

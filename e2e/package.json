@@ -8,7 +8,8 @@
     "cache:live": "node --env-file-if-exists=.env scripts/build-cache.ts wallet-setup/live.setup.ts",
     "test": "playwright test tests/paper.spec.ts",
     "test:live": "node --env-file-if-exists=.env node_modules/@playwright/test/cli.js test tests/live.spec.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "walkthrough": "node scripts/walkthrough.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.48.2",
