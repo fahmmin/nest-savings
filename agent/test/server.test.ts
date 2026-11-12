@@ -5,7 +5,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
 import { privateKeyToAccount } from 'viem/accounts'
-import { openDb } from '../src/db.ts'
+import { openDb } from '../src/db-node.ts'
+import { nodeServer } from '../src/main.ts'
 import { paperExchange } from '../src/exchange/paper.ts'
 import { parseBooks, parseFilters } from '../src/sodex/client.ts'
 import { createApp, DEMO_ADDRESS } from '../src/server.ts'
@@ -25,7 +26,8 @@ before(async () => {
   const db = openDb(':memory:')
   const paper = paperExchange(db, { books, filters })
   const live: Exchange = { ...paper, place: async () => { throw new Error('live must not be used in tests') } }
-  const { server, ensureDemo } = createApp(db, { paper, live })
+  const { handle, ensureDemo } = createApp(db, { paper, live })
+  const server = nodeServer(handle)
   await new Promise<void>(r => server.listen(0, r))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   close = () => server.close()

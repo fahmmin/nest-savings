@@ -1,19 +1,15 @@
-import http from 'node:http'
 import { getAddress, isAddress, verifyMessage, verifyTypedData, type Hex } from 'viem'
 import type { Address, Exchange, Health, UserRecord, UserRules, UserView } from './types.ts'
-import { openDb, getLog, getUser, putUser, useSettingsNonce, type Db } from './db.ts'
+import { getLog, getUser, putUser, useSettingsNonce, type Db } from './db.ts'
 import { apiKeyFor, inEnclave, journalAccount } from './keys.ts'
 import { sosoMode } from './soso.ts'
 import { replay } from './replay.ts'
-import { basketExists, marketView, tick, tickUser, userView, writeLog, SYMBOLS, type Ctx } from './loop.ts'
+import { basketExists, marketView, tickUser, userView, writeLog, SYMBOLS, type Ctx } from './loop.ts'
 import { AGENT_PERMISSIONS, permissionedKeyTypedData, PERM } from './sodex/sign.ts'
 import { accountIdOf, apiKeysOf, registerPermissionedKey } from './sodex/client.ts'
-import { liveExchange } from './exchange/live.ts'
-import { creditPaper, paperExchange } from './exchange/paper.ts'
+import { creditPaper } from './exchange/paper.ts'
 
-const PORT = Number(process.env.PORT ?? 8790)
-const LOOP_MS = Number(process.env.LOOP_MS ?? 60_000)
-const EXCHANGE: 'live' | 'paper' = process.env.EXCHANGE === 'live' ? 'live' : 'paper'
+export const EXCHANGE: 'live' | 'paper' = process.env.EXCHANGE === 'live' ? 'live' : 'paper'
 const PAPER_START_USD = 1000
 const KEY_TTL_MS = 90 * 24 * 3600_000
 /** Public practice account judges can open without a wallet (#home-<this>). */
@@ -170,11 +166,12 @@ export function createApp(db: Db, exchanges: Record<UserRecord['mode'], Exchange
     await tickNow(u)
   }
 
-  const server = http.createServer(async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.setHeader('Access-Control-Allow-Headers', 'content-type')
-    if (req.method === 'OPTIONS') { res.writeHead(204).end(); return }
-    const url = new URL(req.url ?? '/', 'http://x')
+  /** Fetch-style handler, so the same routes run under Node (main.ts) and on Cloudflare Workers (worker.ts). */
+  async function handle(req: Request): Promise<Response> {
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' }
+    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
+    const json = (status: number, v: unknown) => new Response(JSON.stringify(v), { status, headers: { ...cors, 'content-type': 'application/json' } })
+    const url = new URL(req.url)
     const parts = url.pathname.split('/').filter(Boolean)
     try {
       const match = Object.keys(routes).find(k => {
@@ -186,31 +183,17 @@ export function createApp(db: Db, exchanges: Record<UserRecord['mode'], Exchange
       const params = match.split(' ')[1].split('/').filter(Boolean).flatMap((s, i) => (s.startsWith(':') ? [decodeURIComponent(parts[i])] : []))
       let body: any = {}
       if (req.method === 'POST') {
-        let raw = ''
-        for await (const chunk of req) { raw += chunk; if (raw.length > 20_000) throw new HttpError(413, 'body too large') }
+        const raw = await req.text()
+        if (raw.length > 20_000) throw new HttpError(413, 'body too large')
         try { body = raw ? JSON.parse(raw) : {} } catch { throw new HttpError(400, 'invalid json') }
       }
-      const out = await routes[match](params, body, url.searchParams)
-      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(out))
+      return json(200, await routes[match](params, body, url.searchParams))
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 502
       if (status >= 500) console.error(req.method, url.pathname, (e as Error).message)
-      res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify({ error: (e as Error).message }))
+      return json(status, { error: (e as Error).message })
     }
-  })
+  }
 
-  return { server, ctx, ensureDemo }
+  return { handle, ctx, ensureDemo }
 }
-
-if (import.meta.main) {
-  const db = openDb()
-  const exchanges = { paper: paperExchange(db), live: liveExchange(a => apiKeyFor(a)) }
-  const { server, ctx, ensureDemo } = createApp(db, exchanges)
-  server.listen(PORT, async () => {
-    console.log(`nest agent on :${PORT} · exchange ${EXCHANGE} · data ${sosoMode()} · enclave ${inEnclave()} · journal ${journalAccount().address}`)
-    await ensureDemo().catch(e => console.error('demo:', (e as Error).message))
-    const loop = () => tick(ctx).catch(e => console.error('tick:', (e as Error).message)).finally(() => setTimeout(loop, LOOP_MS))
-    loop()
-  })
-}
-

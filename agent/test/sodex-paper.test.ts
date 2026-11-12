@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DatabaseSync } from 'node:sqlite'
+import { openDb } from '../src/db-node.ts'
 import { paperExchange, creditPaper, PAPER_TAKER_FEE } from '../src/exchange/paper.ts'
 import type { Books, Order } from '../src/types.ts'
 
@@ -11,7 +11,7 @@ const BOOK: Books = {
   vMAG7ssi_vUSDC: { bid: 0.45, ask: 0, bidSz: 3076.56, askSz: 0 },
 }
 const setup = (usdc = 1000) => {
-  const db = new DatabaseSync(':memory:')
+  const db = openDb(':memory:')
   const ex = paperExchange(db, { books: async () => structuredClone(BOOK), filters: async () => ({}) })
   creditPaper(db, A, usdc)
   return { db, ex }

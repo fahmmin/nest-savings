@@ -6,6 +6,8 @@ SoDEX. The agent can buy and sell for you, and it can never withdraw.
 
 Built for the SoSoValue Buildathon (Wave 3) on SoSoValue data and SoDEX testnet.
 
+**Live demo: [nest-savings-five.vercel.app](https://nest-savings-five.vercel.app)** · Demo account (no wallet): [#home-0x5aFE…0001](https://nest-savings-five.vercel.app/#home-0x5aFE000000000000000000000000000000000001) · Video: [youtu.be/8-M8JD0UQcs](https://youtu.be/8-M8JD0UQcs) · Agent API: [nest-agent.kkfahmin.workers.dev/health](https://nest-agent.kkfahmin.workers.dev/health)
+
 ![Landing](docs/screens/landing.png)
 
 ## Who it is for
@@ -41,7 +43,7 @@ user's balances + safety floor + high-water mark ─┘          │
                                         signed journal entry ─► app (verified in browser)
 ```
 
-- `agent/` Node 24 + TypeScript (run directly, no build), `viem` is the only dependency, `node:sqlite`, `node:http`.
+- `agent/` TypeScript, `viem` is the only runtime dependency. The same routes run two ways: Node 24 (`src/main.ts`, `node:sqlite`, `node:http`) and Cloudflare Workers (`src/worker.ts`: one Durable Object holds the SQLite data and runs the check loop on its alarm).
   - `decide.ts` pure decision logic: valuation at the bid, drift > 5 points or weekly cadence, IOC limit orders rounded to SoDEX tick and step sizes, minimum $5 orders, sells before buys, floor and cash-out exits. An empty book is treated as "no price yet", never as a crash, and a partly filled exit keeps selling at the next check.
   - `sodex/sign.ts` EIP-712 signing for SoDEX key registration (universal domain, `0x02`) and spot `batchNewOrder` (spot domain, `0x01`). Key registration matches the official Python SDK golden vector byte for byte, and the signing pipeline matches all 20 Go SDK vectors.
   - `keys.ts` one API key per user, derived as HMAC(root, address); no private key is stored. The root comes from a Phala dstack enclave when one is present, otherwise from `ROOT_SECRET`. The app shows which.
@@ -77,7 +79,18 @@ cd app && npm install && npm run dev               # http://localhost:5173
 | `LOOP_MS` | Check interval, default 60000 |
 | `PORT` | Default 8790 |
 
-App: `VITE_AGENT_URL` (default `http://localhost:8790`). `npm run dev:mock` serves sample agent data for UI work.
+App: `VITE_AGENT_URL` (default `http://localhost:8790`).
+
+### Deploy
+
+```bash
+cd agent && npx wrangler deploy                      # Cloudflare Worker + Durable Object
+npx wrangler secret put ROOT_SECRET                  # once; also SOSO_API_KEY when you have one
+```
+
+```bash
+cd app && vercel deploy --prod --build-env VITE_AGENT_URL=https://nest-agent.<you>.workers.dev
+``` `npm run dev:mock` serves sample agent data for UI work.
 
 Tests: `cd agent && npm test && npm run typecheck` (66 tests), `cd app && npm test && npm run build`.
 

@@ -1,5 +1,5 @@
 // Paper exchange: balances in sqlite, IOC fills against the LIVE testnet top of book.
-import type { DatabaseSync } from 'node:sqlite'
+import type { Db } from '../db.ts'
 import { CASH } from '../types.ts'
 import type { Address, Balances, Books, Exchange, Fill, Filters, Symbol } from '../types.ts'
 import * as sodex from '../sodex/client.ts'
@@ -7,21 +7,21 @@ import * as sodex from '../sodex/client.ts'
 export const PAPER_TAKER_FEE = 0.00065
 const EPS = 1e-9
 
-function ensure(db: DatabaseSync) {
+function ensure(db: Db) {
   db.exec('CREATE TABLE IF NOT EXISTS paper_balances(address TEXT, symbol TEXT, qty REAL, PRIMARY KEY(address,symbol))')
 }
 
-function add(db: DatabaseSync, address: string, symbol: Symbol, delta: number) {
+function add(db: Db, address: string, symbol: Symbol, delta: number) {
   db.prepare('INSERT INTO paper_balances(address,symbol,qty) VALUES(?,?,?) ON CONFLICT(address,symbol) DO UPDATE SET qty = qty + excluded.qty')
     .run(address.toLowerCase(), symbol, delta)
 }
 
-export function creditPaper(db: DatabaseSync, address: Address, usdc: number) {
+export function creditPaper(db: Db, address: Address, usdc: number) {
   ensure(db)
   add(db, address, CASH, usdc)
 }
 
-function read(db: DatabaseSync, address: Address): Balances {
+function read(db: Db, address: Address): Balances {
   const out: Balances = { [CASH]: 0 }
   for (const r of db.prepare('SELECT symbol, qty FROM paper_balances WHERE address = ?').all(address.toLowerCase()) as { symbol: string; qty: number }[])
     out[r.symbol] = r.qty
@@ -29,7 +29,7 @@ function read(db: DatabaseSync, address: Address): Balances {
 }
 
 export function paperExchange(
-  db: DatabaseSync,
+  db: Db,
   src: { books?: (symbols: Symbol[]) => Promise<Books>; filters?: () => Promise<Filters> } = {},
 ): Exchange {
   ensure(db)
@@ -54,12 +54,10 @@ export function paperExchange(
         const cost = fillQty * px
         if (buy ? (bal[CASH] ?? 0) + EPS < cost : (bal[o.symbol] ?? 0) + EPS < qty) { fills.push(reject('not enough balance')); continue }
         // Fee is taken from what you receive (base on a buy, USDC on a sell).
-        db.exec('BEGIN')
-        try {
+        db.transaction(() => {
           if (buy) { add(db, user.address, CASH, -cost); add(db, user.address, o.symbol, fillQty * (1 - PAPER_TAKER_FEE)) }
           else { add(db, user.address, o.symbol, -fillQty); add(db, user.address, CASH, cost * (1 - PAPER_TAKER_FEE)) }
-          db.exec('COMMIT')
-        } catch (e) { db.exec('ROLLBACK'); throw e }
+        })
         // Later orders in this call see the size we already took.
         if (buy) t.askSz -= fillQty; else t.bidSz -= fillQty
         fills.push({ order: o, status: fillQty + EPS >= qty ? 'filled' : 'partial', filledQty: fillQty, avgPrice: px, orderId: `paper-${Date.now()}-${i}` })

@@ -1,21 +1,23 @@
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
 import type { Address, LogEntry, UserRecord } from './types.ts'
 
-export type Db = DatabaseSync
-
-export function openDb(file = process.env.DB_FILE ?? new URL('../data/nest.db', import.meta.url).pathname.replace(/^\/(\w:)/, '$1')): Db {
-  if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true })
-  const db = new DatabaseSync(file)
-  db.exec(`
-    PRAGMA journal_mode = WAL;
-    CREATE TABLE IF NOT EXISTS users (address TEXT PRIMARY KEY, json TEXT NOT NULL, settings_nonce INTEGER NOT NULL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS log (id INTEGER PRIMARY KEY AUTOINCREMENT, address TEXT NOT NULL, json TEXT NOT NULL);
-    CREATE INDEX IF NOT EXISTS log_address ON log(address, id);
-  `)
-  return db
+/** The slice of node:sqlite's DatabaseSync Nest uses; worker.ts provides the same over Durable Object SQLite. */
+export interface Db {
+  exec(sql: string): void
+  prepare(sql: string): {
+    run(...params: (string | number | null)[]): { changes: number | bigint }
+    get(...params: (string | number | null)[]): unknown
+    all(...params: (string | number | null)[]): unknown[]
+  }
+  /** Runs fn atomically: all of its writes or none. */
+  transaction(fn: () => void): void
 }
+
+export const SCHEMA = [
+  'CREATE TABLE IF NOT EXISTS users (address TEXT PRIMARY KEY, json TEXT NOT NULL, settings_nonce INTEGER NOT NULL DEFAULT 0)',
+  'CREATE TABLE IF NOT EXISTS log (id INTEGER PRIMARY KEY AUTOINCREMENT, address TEXT NOT NULL, json TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS log_address ON log(address, id)',
+]
+export const migrate = (db: Db) => SCHEMA.forEach(q => db.exec(q))
 
 export const getUser = (db: Db, a: Address): UserRecord | undefined => {
   const row = db.prepare('SELECT json FROM users WHERE address = ?').get(a.toLowerCase()) as { json: string } | undefined
@@ -42,7 +44,7 @@ export function patchUser(db: Db, a: Address, patch: Partial<Pick<UserRecord, 'h
 /** Accepts a settings nonce only if it is newer than the last one used for this address. */
 export function useSettingsNonce(db: Db, a: Address, nonce: number): boolean {
   const r = db.prepare('UPDATE users SET settings_nonce = ? WHERE address = ? AND settings_nonce < ?').run(nonce, a.toLowerCase(), nonce)
-  return r.changes === 1
+  return Number(r.changes) > 0
 }
 
 const lastIds = new WeakMap<Db, number>()
