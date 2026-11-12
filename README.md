@@ -111,7 +111,7 @@ own funded wallet that registers the trade-only key and checks a real testnet fi
 |---|---|
 | SoDEX testnet prices and order books | Live |
 | Practice (paper) trades | Simulated fills against the live testnet top of book, 0.065% taker fee |
-| Live SoDEX testnet trading | Implemented and unit tested against SDK vectors; **not yet run end to end** (needs a whitelisted, funded wallet) |
+| Live SoDEX testnet trading | Switched on in the deployed agent; implemented and tested against SDK vectors, first real run needs a whitelisted, funded wallet |
 | SoSoValue data | Live with `SOSO_API_KEY`; otherwise recorded samples, labelled "Sample" in the app |
 | Secure enclave | Supported via Phala dstack; **not deployed yet**, the app says "No" |
 | Testnet liquidity | Thin: the best Bitcoin offer is often ~$100, so a $1,000 basket fills over a few checks. The log says so. |

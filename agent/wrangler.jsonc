@@ -6,6 +6,6 @@
   "durable_objects": { "bindings": [{ "name": "NEST", "class_name": "NestAgent" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NestAgent"] }],
   // ROOT_SECRET (and SOSO_API_KEY when you have one) are secrets: npx wrangler secret put ROOT_SECRET
-  "vars": { "EXCHANGE": "paper", "LOOP_MS": "60000" },
+  "vars": { "EXCHANGE": "live", "LOOP_MS": "60000" },
   "observability": { "enabled": true }
 }
